@@ -26,6 +26,7 @@ type LoadedVrm = {
 
 const NATURAL_ARM_DROP = 1.25;
 const PLACEMENT_YAW = THREE.MathUtils.degToRad(15);
+const SHA_MOUTH_INTENSITY = .45;
 const EXPRESSION_ALIASES: Record<string, string[]> = {
   neutral: ["neutral", "Neutral"],
   happy: ["happy", "Happy", "joy", "Joy", "smile"],
@@ -305,9 +306,10 @@ export class VrmAvatarController {
   private applyExpressions(): void {
     for (const name of AVATAR_EMOTIONS) {
       const weight = name === this.emotion ? this.emotionMix : name === this.emotionFrom ? 1 - this.emotionMix : 0;
-      this.setExpression(name, weight);
+      const mouthExpression = name === "happy" || name === "surprised";
+      this.setExpression(name, mouthExpression ? weight * SHA_MOUTH_INTENSITY : weight);
     }
-    for (const name of ["aa", "ih", "ou", "ee", "oh"]) this.setExpression(name, name === this.viseme ? this.mouthWeight : 0);
+    for (const name of ["aa", "ih", "ou", "ee", "oh"]) this.setExpression(name, name === this.viseme ? this.mouthWeight * SHA_MOUTH_INTENSITY : 0);
     if (this.expressions.blink) this.setExpression("blink", this.blinkProgress);
     else { this.setExpression("blinkLeft", this.blinkProgress); this.setExpression("blinkRight", this.blinkProgress); }
   }
