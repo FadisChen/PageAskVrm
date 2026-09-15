@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PageAsk VRM 設定</title>
+  </head>
+  <body>
+    <main class="settings-shell">
+      <header class="settings-hero">
+        <p class="eyebrow">PAGEASK VRM · SETTINGS</p>
+        <h1>讓 Avatar 住進你的分頁。</h1>
+        <p>設定完成後，點擊 Chrome 工具列的 PageAsk VRM，就能在目前網頁右下角召喚透明 Avatar。</p>
+      </header>
+      <form id="settingsForm" class="settings-card">
+        <section class="field-group">
+          <label for="apiKey">Gemini API key（BYOK）</label>
+          <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
+        </section>
+        <div class="field-grid">
+          <section class="field-group">
+            <label for="voiceName">Gemini voice</label>
+            <select id="voiceName"></select>
+          </section>
+          <section class="field-group toggle-group">
+            <label for="showText">輸出文字</label>
+            <label class="toggle"><input id="showText" type="checkbox"><span></span></label>
+            <p>在 Avatar 上方顯示漫畫風格對白框。</p>
+          </section>
+        </div>
+        <aside class="privacy-note">
+          <strong>資料提醒</strong>
+          <span>目前頁面文字與麥克風音訊會送往 Google Gemini。API key 會以未加密形式保存在此 Chrome 使用者設定檔。</span>
+        </aside>
+        <footer class="form-footer">
+          <span id="saveStatus" role="status"></span>
+          <button type="submit">儲存設定</button>
+        </footer>
+      </form>
+      <p class="footnote">PageAsk VRM · MVP build · `sha.vrm`</p>
+    </main>
+    <script type="module" src="./options/options.ts"></script>
+  </body>
+</html>

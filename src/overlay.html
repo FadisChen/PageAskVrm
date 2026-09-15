@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PageAsk VRM</title>
+  </head>
+  <body>
+    <main id="app" data-pageask-vrm-ui>
+      <section id="bubble" class="speech-bubble is-hidden" aria-live="polite" aria-atomic="true">
+        <div class="bubble-content">
+          <p id="bubbleText"></p>
+        </div>
+      </section>
+      <section id="stage" aria-label="PageAsk Avatar">
+        <canvas id="avatarCanvas" aria-label="Avatar 3D 模型，可用滑鼠滾輪縮放"></canvas>
+        <div id="status" class="status-pill is-hidden" role="status">
+          <span id="statusDot" class="status-dot"></span>
+          <span id="statusText">準備中</span>
+        </div>
+        <div id="controls" class="controls" aria-label="Avatar 控制">
+          <button id="connectButton" class="connection-button" type="button" aria-label="開始連線" title="開始連線">
+            <span class="connection-light" aria-hidden="true"></span>
+            <span id="connectButtonText">CONNECT</span>
+          </button>
+          <button id="muteButton" class="icon-button" type="button" aria-label="麥克風靜音" title="麥克風靜音">🎙️</button>
+          <button id="textButton" class="icon-button text-button" type="button" aria-label="顯示文字回覆" title="顯示文字回覆">💬</button>
+          <button id="leftButton" class="placement-button" type="button" aria-label="Avatar 視窗靠左" title="Avatar 視窗靠左">←</button>
+          <button id="rightButton" class="placement-button" data-active="true" type="button" aria-label="Avatar 視窗靠右" title="Avatar 視窗靠右">→</button>
+          <button id="settingsButton" type="button" aria-label="開啟設定" title="開啟設定">⚙</button>
+          <button id="closeButton" type="button" aria-label="關閉 Avatar" title="關閉 Avatar">×</button>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./overlay/overlay.ts"></script>
+  </body>
+</html>

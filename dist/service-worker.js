@@ -1,0 +1,1 @@
+chrome.runtime.onInstalled.addListener(()=>{chrome.action.setTitle({title:"顯示或關閉 PageAsk VRM Avatar"}).catch(()=>{})});chrome.action.onClicked.addListener(async e=>{if(e.id)try{await chrome.scripting.executeScript({target:{tabId:e.id},files:["content-bridge.js"]})}catch(t){console.warn("PageAsk VRM 無法注入目前頁面：",t)}});

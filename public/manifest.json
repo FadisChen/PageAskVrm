@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "minimum_chrome_version": "116",
+  "name": "PageAsk VRM",
+  "version": "0.1.0",
+  "description": "在目前網頁右下角以透明 VRM Avatar 進行 Gemini Live 對談。",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "顯示 PageAsk VRM",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "options_page": "options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["overlay.html", "avatars/sha.vrm"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com"
+  }
+}
