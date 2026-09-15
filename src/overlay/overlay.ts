@@ -44,6 +44,8 @@ const audio = new AudioEngine({
     avatar.finishTurn();
   },
   onOutputDrained: () => {
+    lipSync?.reset();
+    avatar.resetAnimation();
     if (!sessionActive) return;
     if (stateMachine.state === "speaking") stateMachine.toListening();
   },
@@ -63,6 +65,7 @@ const live = new GeminiLiveClient({
   onModelTranscript: (text) => updateBubble(text),
   onInterrupted: () => {
     audio.flushPlayback();
+    lipSync?.reset();
     avatar.resetAnimation();
     stateMachine.toListening();
     clearBubble();
@@ -70,6 +73,10 @@ const live = new GeminiLiveClient({
   onTurnComplete: () => {
     transcriptTurnOpen = false;
     avatar.finishTurn();
+    if (!audio.isPlaying()) {
+      lipSync?.reset();
+      avatar.resetAnimation();
+    }
     window.clearTimeout(bubbleFadeTimer);
     bubbleFadeTimer = window.setTimeout(() => { if (!audio.isPlaying()) clearBubble(); }, 2600);
   },
@@ -204,6 +211,7 @@ async function endSession(showReady = true): Promise<void> {
   updateConnectionButton();
   live.stop(false);
   await audio.stop();
+  lipSync?.reset();
   avatar.resetAnimation();
   stateMachine.toIdle();
   clearBubble();
@@ -297,17 +305,28 @@ function showStatusError(message: string): void {
 }
 
 let lipSync: LipSyncAnalyzer | null = null;
+let lipSyncSource: AnalyserNode | null = null;
 function updateLipSync(): void {
   const analyser = audio.getAnalyser();
-  if (analyser && !lipSync) lipSync = new LipSyncAnalyzer(analyser);
+  if (!analyser) {
+    lipSync?.reset();
+    lipSync = null;
+    lipSyncSource = null;
+    return;
+  }
+  if (!lipSync || lipSyncSource !== analyser) {
+    lipSync?.reset();
+    lipSync = new LipSyncAnalyzer(analyser);
+    lipSyncSource = analyser;
+  }
 }
 
-setInterval(updateLipSync, 150);
 function renderFixed(now: number): void {
   const delta = Math.min(.05, Math.max(0, (now - previousFrame) / 1000));
   previousFrame = now;
+  updateLipSync();
   if (lipSync) {
-    const result = lipSync.update(now);
+    const result = lipSync.update(now, audio.isPlaying());
     avatar.setViseme(result.viseme, result.weight, result.rms);
   }
   avatar.setState(stateMachine.state);

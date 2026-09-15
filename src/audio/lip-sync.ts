@@ -14,7 +14,17 @@ export class LipSyncAnalyzer {
     this.timeData = new Uint8Array(analyser.fftSize) as Uint8Array<ArrayBuffer>;
   }
 
-  update(now = performance.now()): { viseme: Viseme; weight: number; rms: number } {
+  reset(): void {
+    this.currentWeight = 0;
+    this.currentViseme = "none";
+  }
+
+  update(now = performance.now(), playing = true): { viseme: Viseme; weight: number; rms: number } {
+    if (!playing) {
+      this.reset();
+      this.lastEmit = now;
+      return { viseme: "none", weight: 0, rms: 0 };
+    }
     this.analyser.getByteFrequencyData(this.frequencyData);
     this.analyser.getByteTimeDomainData(this.timeData);
     let sum = 0;
