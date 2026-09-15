@@ -25,6 +25,7 @@ type LoadedVrm = {
 };
 
 const NATURAL_ARM_DROP = 1.25;
+const PLACEMENT_YAW = THREE.MathUtils.degToRad(15);
 const EXPRESSION_ALIASES: Record<string, string[]> = {
   neutral: ["neutral", "Neutral"],
   happy: ["happy", "Happy", "joy", "Joy", "smile"],
@@ -69,8 +70,8 @@ export class VrmAvatarController {
   private blinkTimer = randomBetween(2, 6);
   private blinkProgress = 0;
   private blinkDirection = 0;
-  private targetYaw = Math.PI;
-  private yaw = Math.PI;
+  private targetYaw = Math.PI - PLACEMENT_YAW;
+  private yaw = Math.PI - PLACEMENT_YAW;
   private zoom = 1;
   private basePosition = new THREE.Vector3();
   private cameraTarget = new THREE.Vector3(0, 1.5, 0);
@@ -116,6 +117,10 @@ export class VrmAvatarController {
   }
 
   setState(state: AvatarState): void { this.state = state; }
+
+  setPlacement(side: "left" | "right"): void {
+    this.targetYaw = Math.PI + (side === "left" ? PLACEMENT_YAW : -PLACEMENT_YAW);
+  }
 
   setEmotion(emotion: AvatarEmotion): void {
     if (!AVATAR_EMOTIONS.includes(emotion) || emotion === this.emotion) return;

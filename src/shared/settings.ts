@@ -2,13 +2,16 @@ export type Settings = {
   apiKey: string;
   voiceName: string;
   showText: boolean;
+  autoInject: boolean;
 };
 
 export const SETTINGS_KEY = "pageAskVrmSettings";
+export const AUTO_INJECT_ORIGINS = ["http://*/*", "https://*/*"];
 export const DEFAULT_SETTINGS: Settings = {
   apiKey: "",
   voiceName: "Aoede",
   showText: false,
+  autoInject: false,
 };
 
 export const VOICES = [
@@ -28,6 +31,7 @@ export function cleanSettings(value: unknown): Settings {
     apiKey: typeof settings.apiKey === "string" ? settings.apiKey.trim() : "",
     voiceName,
     showText: settings.showText === true,
+    autoInject: settings.autoInject === true,
   };
 }
 

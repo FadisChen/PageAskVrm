@@ -1,6 +1,7 @@
 import "./overlay.css";
 import { isPageContext, WINDOW_MESSAGE_TYPES, type PageContext } from "../shared/messages";
 import { cleanSettings, loadSettings, saveSettings, type Settings } from "../shared/settings";
+import { loadKnowledge, type KnowledgeDocument } from "../shared/knowledge";
 import { AudioEngine } from "../audio/audio-engine";
 import { LipSyncAnalyzer } from "../audio/lip-sync";
 import { VrmAvatarController } from "../avatar/vrm-avatar-controller";
@@ -26,6 +27,7 @@ const settingsButton = document.querySelector<HTMLButtonElement>("#settingsButto
 const closeButton = document.querySelector<HTMLButtonElement>("#closeButton")!;
 
 let settings: Settings = cleanSettings(null);
+let knowledge: KnowledgeDocument | null = null;
 let context: PageContext | null = null;
 let sessionActive = false;
 let starting = false;
@@ -182,6 +184,7 @@ async function startSession(): Promise<void> {
       throw new Error("正在讀取目前頁面內容，請再點擊一次 Avatar。 ");
     }
     settings = await loadSettings();
+    knowledge = await loadKnowledge();
     const apiKey = await resolveApiKey(settings);
     sessionActive = true;
     stateMachine.toListening();
@@ -190,7 +193,7 @@ async function startSession(): Promise<void> {
     await live.start({
       apiKey,
       voiceName: settings.voiceName,
-      systemInstruction: buildSystemInstruction(context),
+      systemInstruction: buildSystemInstruction(context, knowledge),
     });
   } catch (error) {
     sessionActive = false;
@@ -271,6 +274,7 @@ function updateTextButton(): void {
 }
 
 function setOverlaySide(side: "left" | "right"): void {
+  avatar.setPlacement(side);
   leftButton.dataset.active = String(side === "left");
   rightButton.dataset.active = String(side === "right");
   window.parent.postMessage({ type: WINDOW_MESSAGE_TYPES.SET_OVERLAY_SIDE, side }, parentOrigin());
