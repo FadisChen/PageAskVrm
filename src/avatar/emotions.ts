@@ -1,10 +1,11 @@
-import { Type, type FunctionDeclaration } from "@google/genai";
+import { Behavior, Type, type FunctionDeclaration } from "@google/genai";
 
 export const AVATAR_EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised"] as const;
 export type AvatarEmotion = typeof AVATAR_EMOTIONS[number];
 
 export const AVATAR_EMOTION_TOOL: FunctionDeclaration = {
   name: "set_avatar_emotion",
+  behavior: Behavior.NON_BLOCKING,
   description: "只有在回覆需要明顯表情或情緒轉折時選擇一個表情。每個回覆最多呼叫一次；不需要時不要呼叫。",
   parameters: {
     type: Type.OBJECT,

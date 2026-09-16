@@ -1,4 +1,4 @@
-import { Type, type FunctionDeclaration } from "@google/genai";
+import { Behavior, Type, type FunctionDeclaration } from "@google/genai";
 
 export const AVATAR_GESTURES = [
   "nod", "shake_head", "wave", "present", "tilt_head",
@@ -8,6 +8,7 @@ export type AvatarGesture = typeof AVATAR_GESTURES[number];
 
 export const AVATAR_GESTURE_TOOL: FunctionDeclaration = {
   name: "play_avatar_gesture",
+  behavior: Behavior.NON_BLOCKING,
   description: "依照即將說出的內容選擇一個自然動作：肯定用 nod，否定用 shake_head，招呼或道別用 wave，解釋介紹用 present，疑問思考用 tilt_head，道謝或道歉用 bow，不確定用 shrug，感謝或關心用 hand_on_chest，請對方繼續用 beckon，正式確認用 salute。每個回覆最多一次，沒有適合情境就不呼叫。",
   parameters: {
     type: Type.OBJECT,

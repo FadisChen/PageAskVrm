@@ -15,7 +15,7 @@
 | Gemini Live 雙向語音 | 可行 | Live API 支援 WSS 雙向串流；輸入為 raw PCM，輸出為 24 kHz PCM。 |
 | 參考當前網頁內容 | 可行 | content script 讀取目前頁面 DOM，整理成有邊界的「不可信頁面內容」後，在建立 Live session 時提供給模型。這不是 Live API 自動讀頁面，必須由 Extension 主動擷取。 |
 | Avatar 情緒 | 可行 | 沿用 `set_avatar_emotion` function declaration 與 VRM expression alias 對應。 |
-| Avatar 動作 | 可行 | 沿用 `play_avatar_gesture` 與 `AvatarGesturePlayer`；`gemini-3.1-flash-live-preview` 的 function calling 應按同步工具設計。 |
+| Avatar 動作 | 可行 | 沿用 `play_avatar_gesture` 與 `AvatarGesturePlayer`；`gemini-3.8-live` 的 function calling 使用非同步工具設計。 |
 | Chrome Web Store 正式發布 | 可行，但需調整 | `Avatar` 的 CDN import map 不能原樣使用；MV3 需把可執行程式碼打包在 Extension 內。BYOK API key 由使用者自行提供與管理。 |
 
 Live API 的 client-to-server 方案適合低延遲串流；本專案採 BYOK，由使用者在設定頁提供自己的 Gemini API key。[Gemini Live API overview](https://ai.google.dev/gemini-api/docs/live-api)
@@ -124,7 +124,7 @@ Chrome content script 可以讀取宿主頁面的 DOM，但與宿主頁面的 Ja
 
 建議使用官方目前的 JavaScript SDK `@google/genai` 並由 overlay 建立 Live session：
 
-- model：`gemini-3.1-flash-live-preview`
+- model：`gemini-3.8-live`
 - response modality：`AUDIO`
 - voice：沿用 `Avatar` 的 `Aoede` 預設值，之後可加入 PageAsk 的 voice 設定
 - `inputAudioTranscription`：開啟，供內部狀態與除錯使用
@@ -146,7 +146,7 @@ Live API 的輸入音訊是 raw little-endian 16-bit PCM，慣用 16 kHz；輸�
 - gesture 先排隊，等第一段語音開始再播放；被插話、斷線或結束時淡出。
 - function call 參數錯誤時回傳 tool error，不讓錯誤資料進入骨骼控制器。
 
-`gemini-3.1-flash-live-preview` 的 Live API function calling 目前應以同步工具處理；因此 Avatar emotion／gesture handler 必須在收到 call 後立即回覆，不設計成非同步背景工作。[Tool use with Live API](https://ai.google.dev/gemini-api/docs/live-api/tools)
+`gemini-3.8-live` 的 Live API function calling 支援非同步工具；Avatar emotion／gesture 宣告為 `NON_BLOCKING`，並使用 `SILENT` scheduling 回傳純視覺工具結果，避免阻塞語音對談。[Tool use with Live API](https://ai.google.dev/gemini-api/docs/live-api/tools)
 
 ### 5.3 API key（BYOK）
 
@@ -397,7 +397,7 @@ Chrome 內建頁面如 `chrome://`、Extension Web Store、部分 PDF viewer 頁
 - 互動方式：點擊 Avatar 開始或結束語音對談；hover 顯示 mute、end、設定等最小控制。
 - Avatar：固定使用 `sha.vrm`，不在 MVP 做模型切換。
 - 頁面內容：啟用時 snapshot 一次；SPA URL 變更時重建 session；一般 mutation 只標記 dirty。
-- Live model：`gemini-3.1-flash-live-preview`。
+- Live model：`gemini-3.8-live`。
 - Voice：`Aoede`。
 - 開發認證：允許本機 direct API key。
 - 認證方式：使用者在設定頁提供自己的 BYOK API key。

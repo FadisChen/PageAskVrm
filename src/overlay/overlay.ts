@@ -2,6 +2,7 @@ import "./overlay.css";
 import { isPageContext, WINDOW_MESSAGE_TYPES, type PageContext } from "../shared/messages";
 import { cleanSettings, loadSettings, saveSettings, type Settings } from "../shared/settings";
 import { loadKnowledge, type KnowledgeDocument } from "../shared/knowledge";
+import { toTraditionalChinese } from "../shared/traditional-chinese";
 import { AudioEngine } from "../audio/audio-engine";
 import { LipSyncAnalyzer } from "../audio/lip-sync";
 import { VrmAvatarController } from "../avatar/vrm-avatar-controller";
@@ -234,7 +235,7 @@ function updateBubble(text: string): void {
     transcriptTurnOpen = true;
   }
   modelTranscript = mergePartial(modelTranscript, text);
-  const clipped = clipBubble(modelTranscript);
+  const clipped = clipBubble(toTraditionalChinese(modelTranscript));
   bubbleText.textContent = clipped;
   if (isNewTurn) {
     bubble.classList.remove("is-hidden");
