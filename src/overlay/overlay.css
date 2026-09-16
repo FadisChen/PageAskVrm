@@ -48,6 +48,9 @@ body { user-select: none; }
 #avatarCanvas:active { cursor: grabbing; }
 
 .speech-bubble {
+  --bubble-bg: #1d2931;
+  --bubble-ink: #f7f6ed;
+  --bubble-border: rgba(184, 216, 201, .72);
   position: absolute;
   top: 7px;
   left: 12px;
@@ -56,39 +59,35 @@ body { user-select: none; }
   min-block-size: 60px;
   block-size: fit-content;
   padding: 13px 17px;
-  color: var(--ink);
-  background: var(--paper);
-  border: 3px solid var(--ink);
-  border-radius: 23px 23px 23px 7px;
-  box-shadow: 5px 6px 0 rgba(30, 37, 40, .18);
+  color: var(--bubble-ink);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  isolation: isolate;
+  filter: drop-shadow(0 12px 15px rgba(8, 14, 17, .28));
   pointer-events: none;
 }
 
-.speech-bubble::before,
-.speech-bubble::after {
+.bubble-frame {
   position: absolute;
-  content: "";
-  width: 0;
-  height: 0;
-  border-inline: 15px solid transparent;
-  border-top: 28px solid var(--ink);
-  transform: rotate(25deg);
-  transform-origin: 50% 0;
+  inset: 0 0 -18px;
+  z-index: -1;
+  inline-size: 100%;
+  block-size: calc(100% + 18px);
+  overflow: visible;
+  pointer-events: none;
 }
 
-.speech-bubble::before {
-  right: 19px;
-  bottom: -27px;
-}
-
-.speech-bubble::after {
-  right: 22px;
-  bottom: -21px;
-  border-inline-width: 11px;
-  border-top: 21px solid var(--paper);
+.bubble-frame path {
+  fill: var(--bubble-bg);
+  stroke: var(--bubble-border);
+  stroke-width: 2;
+  stroke-linejoin: round;
 }
 
 .bubble-content {
+  position: relative;
+  z-index: 1;
   max-block-size: min(18rem, calc(100dvb - 7rem));
   overflow-y: auto;
   scrollbar-gutter: stable;
@@ -98,8 +97,8 @@ body { user-select: none; }
 .bubble-content p {
   margin: 0;
   font-family: "Comic Sans MS", "Trebuchet MS", cursive;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 400;
   line-height: 1.45;
   letter-spacing: .01em;
   white-space: pre-wrap;
@@ -192,8 +191,3 @@ body { user-select: none; }
 }
 
 @keyframes pulse { 50% { transform: scale(1.45); } }
-
-@media (max-width: 360px) {
-  .speech-bubble { left: 5px; right: 5px; }
-  .bubble-content p { font-size: 12px; }
-}
