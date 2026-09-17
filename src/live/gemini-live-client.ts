@@ -77,8 +77,11 @@ export class GeminiLiveClient {
 
   sendText(text: string): boolean {
     if (!this.session || this.stopped || !text.trim()) return false;
+    // realtimeInput leaves the turn boundary to VAD activity detection, which the continuous
+    // mic stream keeps ambiguous. clientContent's turnComplete gives an explicit, reliable
+    // turn boundary regardless of mic state (matches the working PageAsk sibling project).
     this.session.sendClientContent({
-      turns: { role: "user", parts: [{ text: text.trim() }] },
+      turns: [{ role: "user", parts: [{ text: text.trim() }] }],
       turnComplete: true,
     });
     return true;

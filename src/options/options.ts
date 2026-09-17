@@ -7,6 +7,7 @@ const apiKey = document.querySelector<HTMLInputElement>("#apiKey")!;
 const voiceName = document.querySelector<HTMLSelectElement>("#voiceName")!;
 const showText = document.querySelector<HTMLInputElement>("#showText")!;
 const autoInject = document.querySelector<HTMLInputElement>("#autoInject")!;
+const showInput = document.querySelector<HTMLInputElement>("#showInput")!;
 const knowledgeFile = document.querySelector<HTMLInputElement>("#knowledgeFile")!;
 const knowledgeStatus = document.querySelector<HTMLElement>("#knowledgeStatus")!;
 const clearKnowledgeButton = document.querySelector<HTMLButtonElement>("#clearKnowledge")!;
@@ -26,6 +27,7 @@ apiKey.value = settings.apiKey;
 voiceName.value = settings.voiceName;
 showText.checked = settings.showText;
 autoInject.checked = settings.autoInject && autoInjectPermission;
+showInput.checked = settings.showInput;
 renderKnowledgeStatus(knowledge);
 
 form.addEventListener("submit", async (event) => {
@@ -45,11 +47,13 @@ form.addEventListener("submit", async (event) => {
     voiceName: voiceName.value,
     showText: showText.checked,
     autoInject: autoInject.checked,
+    showInput: showInput.checked,
   });
   settings.apiKey = next.apiKey;
   settings.voiceName = next.voiceName;
   settings.showText = next.showText;
   settings.autoInject = next.autoInject;
+  settings.showInput = next.showInput;
   saveStatus.textContent = "設定已儲存。";
   window.setTimeout(() => { saveStatus.textContent = ""; }, 3500);
 });

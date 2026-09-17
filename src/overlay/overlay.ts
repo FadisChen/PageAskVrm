@@ -13,6 +13,7 @@ import type { AvatarGesture } from "../avatar/gestures";
 
 const MAX_BUBBLE_CHARS = 180;
 
+const appRoot = document.querySelector<HTMLElement>("#app")!;
 const canvas = document.querySelector<HTMLCanvasElement>("#avatarCanvas")!;
 const bubble = document.querySelector<HTMLElement>("#bubble")!;
 const bubbleText = document.querySelector<HTMLParagraphElement>("#bubbleText")!;
@@ -22,6 +23,8 @@ const connectButton = document.querySelector<HTMLButtonElement>("#connectButton"
 const connectButtonText = document.querySelector<HTMLElement>("#connectButtonText")!;
 const muteButton = document.querySelector<HTMLButtonElement>("#muteButton")!;
 const textButton = document.querySelector<HTMLButtonElement>("#textButton")!;
+const textInputRow = document.querySelector<HTMLElement>("#textInputRow")!;
+const textInputField = document.querySelector<HTMLInputElement>("#textInputField")!;
 const leftButton = document.querySelector<HTMLButtonElement>("#leftButton")!;
 const rightButton = document.querySelector<HTMLButtonElement>("#rightButton")!;
 const settingsButton = document.querySelector<HTMLButtonElement>("#settingsButton")!;
@@ -99,6 +102,7 @@ updateConnectionButton();
 async function initialize(): Promise<void> {
   settings = await loadSettings();
   updateTextButton();
+  updateTextInputVisibility();
   await avatar.load(chrome.runtime.getURL("avatars/sha.vrm"));
   window.parent.postMessage({ type: WINDOW_MESSAGE_TYPES.REQUEST_PAGE_CONTEXT }, parentOrigin());
 }
@@ -123,6 +127,19 @@ textButton.addEventListener("click", async (event) => {
   settings = await saveSettings({ ...settings, showText: !settings.showText });
   updateTextButton();
   if (!settings.showText) clearBubble();
+});
+
+textInputField.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.isComposing || event.keyCode === 229) return;
+  event.preventDefault();
+  const value = textInputField.value.trim();
+  if (!value) return;
+  if (!sessionActive) {
+    showStatusError("請先點擊 CONNECT 連線。");
+    return;
+  }
+  if (live.sendText(value)) stateMachine.toThinking();
+  textInputField.value = "";
 });
 
 leftButton.addEventListener("click", (event) => {
@@ -163,6 +180,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes.pageAskVrmSettings?.newValue) return;
   settings = cleanSettings(changes.pageAskVrmSettings.newValue);
   updateTextButton();
+  updateTextInputVisibility();
   if (!settings.showText) clearBubble();
 });
 
@@ -272,6 +290,11 @@ function updateTextButton(): void {
   textButton.dataset.active = String(settings.showText);
   textButton.setAttribute("aria-label", settings.showText ? "關閉文字顯示" : "顯示文字回覆");
   textButton.title = settings.showText ? "關閉文字顯示" : "顯示文字回覆";
+}
+
+function updateTextInputVisibility(): void {
+  textInputRow.classList.toggle("is-hidden", !settings.showInput);
+  appRoot.dataset.textInput = String(settings.showInput);
 }
 
 function setOverlaySide(side: "left" | "right"): void {

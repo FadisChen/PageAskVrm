@@ -256,7 +256,7 @@ export class VrmAvatarController {
     this.vrm.scene.position.y -= scaledBox.min.y;
     this.vrm.scene.position.z -= center.z;
     this.basePosition.copy(this.vrm.scene.position);
-    const targetY = targetHeight * .8;
+    const targetY = targetHeight * .78;
     const visibleHeight = targetHeight * .42;
     const distance = visibleHeight / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)));
     this.cameraTarget.set(0, targetY, 0);
