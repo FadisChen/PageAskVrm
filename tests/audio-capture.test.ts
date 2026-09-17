@@ -36,11 +36,7 @@ it("suppresses queued capture during text replies and resumes without reopening 
   const samples = { data: new Float32Array([0.2, 0.3]) };
   queuedCapture(samples);
   expect(onInputChunk).toHaveBeenCalledOnce();
-  audio.pauseMicrophone();
-  queuedCapture(samples);
-  expect(onInputChunk).toHaveBeenCalledOnce();
   audio.setMuted(true);
-  audio.resumeMicrophone();
   queuedCapture(samples);
   expect(onInputChunk).toHaveBeenCalledOnce();
   audio.setMuted(false);

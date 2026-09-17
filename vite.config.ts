@@ -31,5 +31,7 @@ export default defineConfig({
   test: {
     root: resolve(__dirname),
     include: ["tests/**/*.test.ts"],
+    // The overlay bundle pulls in three.js; its first cold import can exceed the 10s default.
+    hookTimeout: 30_000,
   },
 });

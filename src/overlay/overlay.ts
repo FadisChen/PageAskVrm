@@ -40,9 +40,6 @@ let modelTranscript = "";
 let transcriptTurnOpen = false;
 let bubbleFadeTimer = 0;
 let previousFrame = performance.now();
-let micPausedForText = false;
-let textResponseStarted = false;
-let textResponseComplete = false;
 
 const stateMachine = new AvatarStateMachine();
 const audio = new AudioEngine({
@@ -53,7 +50,6 @@ const audio = new AudioEngine({
     avatar.finishTurn();
   },
   onOutputDrained: () => {
-    if (textResponseComplete) releaseMicSuppression();
     lipSync?.reset();
     avatar.resetAnimation();
     if (!sessionActive) return;
@@ -62,7 +58,6 @@ const audio = new AudioEngine({
 });
 const live = new GeminiLiveClient({
   onStatus: (next) => {
-    if (next === "reconnecting" || next === "failed" || next === "stopped") releaseMicSuppression();
     if (next === "connected") {
       stateMachine.toListening();
       setStatus("connected", "CONNECTED");
@@ -71,19 +66,10 @@ const live = new GeminiLiveClient({
     else if (next === "failed") setStatus("failed", "FAILED");
     else setStatus("stopped", "READY");
   },
-  onAudio: (bytes, sampleRate) => {
-    if (micPausedForText) textResponseStarted = true;
-    audio.playPcm(bytes, sampleRate);
-  },
+  onAudio: (bytes, sampleRate) => audio.playPcm(bytes, sampleRate),
   onUserTranscript: () => { stateMachine.toThinking(); },
-  onModelTranscript: (text) => {
-    if (micPausedForText) textResponseStarted = true;
-    updateBubble(text);
-  },
+  onModelTranscript: (text) => updateBubble(text),
   onInterrupted: () => {
-    // Text may interrupt the previous voice turn; it is not the text reply's end.
-    textResponseStarted = false;
-    textResponseComplete = false;
     audio.flushPlayback();
     lipSync?.reset();
     avatar.resetAnimation();
@@ -91,10 +77,6 @@ const live = new GeminiLiveClient({
     clearBubble();
   },
   onTurnComplete: () => {
-    if (micPausedForText && textResponseStarted) {
-      textResponseComplete = true;
-      if (!audio.isPlaying()) releaseMicSuppression();
-    }
     transcriptTurnOpen = false;
     avatar.finishTurn();
     if (!audio.isPlaying()) {
@@ -106,10 +88,7 @@ const live = new GeminiLiveClient({
   },
   onEmotion: (emotion: AvatarEmotion) => avatar.setEmotion(emotion),
   onGesture: (gesture: AvatarGesture) => avatar.playGesture(gesture),
-  onError: (error) => {
-    releaseMicSuppression();
-    showStatusError(error.message);
-  },
+  onError: (error) => showStatusError(error.message),
 });
 const avatar = new VrmAvatarController(canvas, {
   onLoading: (progress) => setStatus("loading", `VRM ${Math.round(progress * 100)}%`),
@@ -136,12 +115,7 @@ connectButton.addEventListener("click", (event) => {
 
 muteButton.addEventListener("click", (event) => {
   event.stopPropagation();
-  muted = !muted;
-  audio.setMuted(muted);
-  if (muted) live.endAudioStream();
-  muteButton.textContent = muted ? "🔇" : "🎙️";
-  muteButton.setAttribute("aria-label", muted ? "解除麥克風靜音" : "麥克風靜音");
-  muteButton.title = muted ? "解除麥克風靜音" : "麥克風靜音";
+  setMuted(!muted);
 });
 
 textButton.addEventListener("click", async (event) => {
@@ -164,14 +138,12 @@ textInputField.addEventListener("keydown", (event) => {
     showStatusError("連線尚未就緒，請稍後再送出。");
     return;
   }
-  suppressMicForTextTurn();
   try {
     if (live.sendText(value)) {
       stateMachine.toThinking();
       textInputField.value = "";
-    } else releaseMicSuppression();
+    }
   } catch (error) {
-    releaseMicSuppression();
     showStatusError(error instanceof Error ? error.message : String(error));
   }
 });
@@ -214,7 +186,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes.pageAskVrmSettings?.newValue) return;
   settings = cleanSettings(changes.pageAskVrmSettings.newValue);
   updateTextButton();
-  updateTextInputVisibility();
   if (!settings.showText) clearBubble();
 });
 
@@ -264,7 +235,6 @@ async function endSession(showReady = true): Promise<void> {
   if (!sessionActive && !starting) return;
   sessionActive = false;
   starting = false;
-  releaseMicSuppression();
   updateConnectionButton();
   live.stop(false);
   await audio.stop();
@@ -327,24 +297,21 @@ function updateTextButton(): void {
   textButton.title = settings.showText ? "關閉文字顯示" : "顯示文字回覆";
 }
 
+// Muting the microphone is what switches the Avatar into typing mode.
+function setMuted(next: boolean): void {
+  muted = next;
+  audio.setMuted(muted);
+  if (muted) live.endAudioStream();
+  muteButton.textContent = muted ? "🔇" : "🎙️";
+  muteButton.setAttribute("aria-label", muted ? "解除麥克風靜音" : "麥克風靜音");
+  muteButton.title = muted ? "解除麥克風靜音" : "麥克風靜音";
+  updateTextInputVisibility();
+  if (muted) textInputField.focus();
+}
+
 function updateTextInputVisibility(): void {
-  textInputRow.classList.toggle("is-hidden", !settings.showInput);
-  appRoot.dataset.textInput = String(settings.showInput);
-}
-
-function suppressMicForTextTurn(): void {
-  micPausedForText = true;
-  textResponseStarted = false;
-  textResponseComplete = false;
-  audio.pauseMicrophone();
-}
-
-function releaseMicSuppression(): void {
-  if (!micPausedForText) return;
-  micPausedForText = false;
-  textResponseStarted = false;
-  textResponseComplete = false;
-  audio.resumeMicrophone();
+  textInputRow.classList.toggle("is-hidden", !muted);
+  appRoot.dataset.textInput = String(muted);
 }
 
 function setOverlaySide(side: "left" | "right"): void {

@@ -88,8 +88,6 @@ export class GeminiLiveClient {
 
   sendText(text: string): boolean {
     if (!this.session || !this.isConnected() || !text.trim()) return false;
-    // Pausing capture alone leaves cached audio in the server's automatic VAD.
-    this.endAudioStream();
     this.session.sendClientContent({
       turns: [{ role: "user", parts: [{ text: text.trim() }] }],
       turnComplete: true,

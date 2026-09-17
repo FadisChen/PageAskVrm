@@ -18,7 +18,6 @@ export class AudioEngine {
   private nextPlayTime = 0;
   private running = false;
   private muted = false;
-  private microphonePaused = false;
 
   constructor(callbacks: AudioCallbacks = {}) { this.callbacks = callbacks; }
 
@@ -71,16 +70,6 @@ export class AudioEngine {
     this.silentGain.connect(this.context.destination);
   }
 
-  // Keep the capture graph ready; the Live client signals audioStreamEnd to the server.
-  pauseMicrophone(): void {
-    this.microphonePaused = true;
-    this.callbacks.onInputLevel?.(0);
-  }
-
-  resumeMicrophone(): void {
-    this.microphonePaused = false;
-  }
-
   playPcm(bytes: Uint8Array, sampleRate = 24000): void {
     if (!this.context || !this.outputGain || !bytes.byteLength) return;
     const sampleCount = Math.floor(bytes.byteLength / 2);
@@ -121,7 +110,6 @@ export class AudioEngine {
 
   async stop(): Promise<void> {
     this.running = false;
-    this.microphonePaused = false;
     this.flushPlayback();
     if (this.processor) {
       this.processor.port.onmessage = null;
@@ -145,7 +133,7 @@ export class AudioEngine {
   }
 
   private capture(samples: Float32Array): void {
-    if (!this.running || !this.context || this.muted || this.microphonePaused) return;
+    if (!this.running || !this.context || this.muted) return;
     const pcm = floatToPcm16(resample(samples, this.context.sampleRate, 16000));
     this.callbacks.onInputChunk?.(pcm);
     let sum = 0;

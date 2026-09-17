@@ -9,7 +9,6 @@ const fake = vi.hoisted(() => ({
   close: vi.fn(),
   audioCallbacks: {} as AudioCallbacks,
   playing: false,
-  paused: false,
   muted: false,
 }));
 vi.mock("@google/genai", async (original) => ({
@@ -20,10 +19,8 @@ vi.mock("../src/audio/audio-engine", () => ({
   AudioEngine: class {
     constructor(callbacks: AudioCallbacks) { fake.audioCallbacks = callbacks; }
     async start() {}
-    async stop() { fake.paused = false; }
+    async stop() {}
     setMuted(value: boolean) { fake.muted = value; }
-    pauseMicrophone() { fake.paused = true; }
-    async resumeMicrophone() { fake.paused = false; }
     playPcm() { fake.playing = true; fake.audioCallbacks.onOutputStarted?.(); }
     isPlaying() { return fake.playing; }
     flushPlayback() { fake.playing = false; }
@@ -45,12 +42,16 @@ class Element extends EventTarget {
   dataset: Record<string, string> = {};
   classList = { add() {}, remove() {}, toggle() {} };
   setAttribute() {}
+  focus() {}
 }
 let elements: Map<string, Element>;
 let server: (message: Partial<LiveServerMessage>) => void;
 let connected: (setupComplete?: boolean) => void;
 const settle = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
 const element = (id: string) => elements.get(id)!;
+function toggleMute() {
+  element("muteButton").dispatchEvent(new Event("click"));
+}
 function sendText(value = "第一則問題") {
   element("textInputField").value = value;
   const event = new Event("keydown", { cancelable: true });
@@ -58,7 +59,7 @@ function sendText(value = "第一則問題") {
   element("textInputField").dispatchEvent(event);
 }
 function sendMicChunk() {
-  if (!fake.paused && !fake.muted) fake.audioCallbacks.onInputChunk?.(new Uint8Array([0, 0]));
+  if (!fake.muted) fake.audioCallbacks.onInputChunk?.(new Uint8Array([0, 0]));
 }
 function reply() {
   server({ serverContent: { modelTurn: { parts: [{ inlineData: { data: "AAA=", mimeType: "audio/pcm;rate=24000" } }] } } });
@@ -68,7 +69,7 @@ beforeEach(async () => {
   vi.resetModules();
   vi.clearAllMocks();
   vi.useFakeTimers();
-  fake.playing = fake.paused = fake.muted = false;
+  fake.playing = fake.muted = false;
   elements = new Map();
   vi.stubGlobal("document", {
     referrer: "",
@@ -117,8 +118,19 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
+it("keeps the text input hidden until the microphone is muted", () => {
+  expect(element("app").dataset.textInput).toBe("false");
+  toggleMute();
+  expect(element("muteButton").textContent).toBe("🔇");
+  expect(element("app").dataset.textInput).toBe("true");
+  toggleMute();
+  expect(element("muteButton").textContent).toBe("🎙️");
+  expect(element("app").dataset.textInput).toBe("false");
+});
+
 it("does not advertise CONNECTED or discard the first text before the session is ready", () => {
   expect(element("statusText").textContent).not.toBe("CONNECTED");
+  toggleMute();
   sendText();
   expect(element("textInputField").value).toBe("第一則問題");
   expect(fake.sendClientContent).not.toHaveBeenCalled();
@@ -127,100 +139,61 @@ it("does not advertise CONNECTED or discard the first text before the session is
 it("waits for server setupComplete before accepting text or audio", async () => {
   connected(false); await settle();
   expect(element("connectButton").dataset.state).toBe("connecting");
-  sendText(); sendMicChunk();
+  sendMicChunk();
+  expect(fake.sendRealtimeInput).not.toHaveBeenCalled();
+  toggleMute();
+  sendText();
   expect(element("textInputField").value).toBe("第一則問題");
   expect(fake.sendClientContent).not.toHaveBeenCalled();
-  expect(fake.sendRealtimeInput).not.toHaveBeenCalled();
   server({ setupComplete: {} });
   expect(element("statusText").textContent).toBe("CONNECTED");
   sendText();
   expect(fake.sendClientContent).toHaveBeenCalledOnce();
 });
 
-it("keeps capture paused past six seconds without an interruption event", async () => {
+it("answers the very first typed message without ending the audio stream again", async () => {
   connected(); await settle();
-  sendText();
-  await vi.advanceTimersByTimeAsync(7000);
-  sendMicChunk();
-  expect(fake.sendRealtimeInput).not.toHaveBeenCalled();
-});
-
-it("waits for turn completion when playback drains between response chunks", async () => {
-  connected(); await settle();
-  sendText(); reply();
-  fake.playing = false; fake.audioCallbacks.onOutputDrained?.();
-  sendMicChunk();
-  expect(fake.sendRealtimeInput).not.toHaveBeenCalled();
-  server({ serverContent: { turnComplete: true } });
   sendMicChunk();
   expect(fake.sendRealtimeInput).toHaveBeenCalledOnce();
-});
-
-it("releases suppression after a transcript-only reply", async () => {
-  connected(); await settle();
-  sendText();
-  server({ serverContent: { outputTranscription: { text: "回答" }, turnComplete: true } });
-  sendMicChunk();
-  expect(fake.sendRealtimeInput).toHaveBeenCalledOnce();
-});
-
-it("ends a voice stream on mute without sending a duplicate end for the following text", async () => {
-  connected(); await settle();
-  sendMicChunk();
-  element("muteButton").dispatchEvent(new Event("click"));
+  toggleMute();
   expect(fake.sendRealtimeInput).toHaveBeenLastCalledWith({ audioStreamEnd: true });
-  const calls = fake.sendRealtimeInput.mock.calls.length;
-  sendText();
-  expect(fake.sendRealtimeInput).toHaveBeenCalledTimes(calls);
-  expect(fake.sendClientContent).toHaveBeenCalledOnce();
-});
+  const realtimeCalls = fake.sendRealtimeInput.mock.calls.length;
 
-it("ends the microphone stream before dispatching the first text turn", async () => {
-  connected(); await settle();
-  sendMicChunk();
   sendText();
   expect(fake.sendClientContent).toHaveBeenCalledExactlyOnceWith({
     turns: [{ role: "user", parts: [{ text: "第一則問題" }] }], turnComplete: true,
   });
-  expect(fake.sendRealtimeInput).toHaveBeenLastCalledWith({ audioStreamEnd: true });
-  expect(fake.sendRealtimeInput.mock.invocationCallOrder.at(-1)).toBeLessThan(fake.sendClientContent.mock.invocationCallOrder[0]);
+  expect(fake.sendRealtimeInput).toHaveBeenCalledTimes(realtimeCalls);
+  expect(element("textInputField").value).toBe("");
+
+  reply();
+  server({ serverContent: { outputTranscription: { text: "第一則回答" }, turnComplete: true } });
+  expect(element("bubbleText").textContent).toBe("第一則回答");
 });
 
-it("keeps the microphone suppressed after an old turn is interrupted and while the first reply is pending", async () => {
+it("keeps the microphone silent while muted and restores it on unmute", async () => {
   connected(); await settle();
-  sendMicChunk(); sendText();
+  toggleMute();
   fake.sendRealtimeInput.mockClear();
-  server({ serverContent: { interrupted: true, turnComplete: true } });
-  await vi.advanceTimersByTimeAsync(7000);
-  sendMicChunk();
-  expect(fake.sendRealtimeInput).not.toHaveBeenCalled();
+  sendText();
   reply();
   server({ serverContent: { turnComplete: true } });
+  fake.playing = false; fake.audioCallbacks.onOutputDrained?.();
   sendMicChunk();
   expect(fake.sendRealtimeInput).not.toHaveBeenCalled();
-  fake.playing = false;
-  fake.audioCallbacks.onOutputDrained?.();
+
+  toggleMute();
   sendMicChunk();
-  expect(fake.sendRealtimeInput).toHaveBeenCalledOnce();
+  expect(fake.sendRealtimeInput).toHaveBeenCalledExactlyOnceWith({
+    audio: { mimeType: "audio/pcm;rate=16000", data: "AAA=" },
+  });
 });
 
-it("preserves text and restores the microphone when sending fails", async () => {
+it("preserves text and reports the error when sending fails", async () => {
   connected(); await settle();
+  toggleMute();
   fake.sendClientContent.mockImplementationOnce(() => { throw new Error("socket closed"); });
   sendText();
   expect(element("textInputField").value).toBe("第一則問題");
-  expect(fake.paused).toBe(false);
   expect(element("statusText").textContent).toBe("socket closed");
-});
-
-it("can unmute after a text reply finishes while muted", async () => {
-  connected(); await settle();
-  sendText();
-  element("muteButton").dispatchEvent(new Event("click"));
-  reply(); server({ serverContent: { turnComplete: true } });
-  fake.playing = false; fake.audioCallbacks.onOutputDrained?.();
-  element("muteButton").dispatchEvent(new Event("click"));
-  fake.sendRealtimeInput.mockClear();
-  sendMicChunk();
-  expect(fake.sendRealtimeInput).toHaveBeenCalledOnce();
 });

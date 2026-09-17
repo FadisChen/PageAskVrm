@@ -3,7 +3,6 @@ export type Settings = {
   voiceName: string;
   showText: boolean;
   autoInject: boolean;
-  showInput: boolean;
 };
 
 export const SETTINGS_KEY = "pageAskVrmSettings";
@@ -13,7 +12,6 @@ export const DEFAULT_SETTINGS: Settings = {
   voiceName: "Aoede",
   showText: false,
   autoInject: false,
-  showInput: false,
 };
 
 export const VOICES = [
@@ -34,7 +32,6 @@ export function cleanSettings(value: unknown): Settings {
     voiceName,
     showText: settings.showText === true,
     autoInject: settings.autoInject === true,
-    showInput: settings.showInput === true,
   };
 }
 
