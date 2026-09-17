@@ -43,6 +43,8 @@ export class GeminiLiveClient {
   private reconnectTimer = 0;
   private resumptionHandle = "";
   private gestureUsed = false;
+  private audioStreamOpen = false;
+  private setupComplete = false;
 
   constructor(callbacks: LiveCallbacks = {}) { this.callbacks = callbacks; }
 
@@ -64,22 +66,30 @@ export class GeminiLiveClient {
     this.reconnectTimer = 0;
     this.session?.close();
     this.session = null;
+    this.audioStreamOpen = false;
+    this.setupComplete = false;
     this.gestureUsed = false;
     if (notify) this.callbacks.onStatus?.("stopped");
   }
 
-  isConnected(): boolean { return Boolean(this.session && !this.stopped); }
+  isConnected(): boolean { return Boolean(this.session && !this.stopped && this.setupComplete); }
 
   sendAudio(bytes: Uint8Array): void {
-    if (!this.session || this.stopped || !bytes.byteLength) return;
+    if (!this.session || !this.isConnected() || !bytes.byteLength) return;
     this.session.sendRealtimeInput({ audio: { mimeType: "audio/pcm;rate=16000", data: bytesToBase64(bytes) } });
+    this.audioStreamOpen = true;
+  }
+
+  endAudioStream(): void {
+    if (!this.session || this.stopped || !this.audioStreamOpen) return;
+    this.session.sendRealtimeInput({ audioStreamEnd: true });
+    this.audioStreamOpen = false;
   }
 
   sendText(text: string): boolean {
-    if (!this.session || this.stopped || !text.trim()) return false;
-    // realtimeInput leaves the turn boundary to VAD activity detection, which the continuous
-    // mic stream keeps ambiguous. clientContent's turnComplete gives an explicit, reliable
-    // turn boundary regardless of mic state (matches the working PageAsk sibling project).
+    if (!this.session || !this.isConnected() || !text.trim()) return false;
+    // Pausing capture alone leaves cached audio in the server's automatic VAD.
+    this.endAudioStream();
     this.session.sendClientContent({
       turns: [{ role: "user", parts: [{ text: text.trim() }] }],
       turnComplete: true,
@@ -111,7 +121,6 @@ export class GeminiLiveClient {
           tools: [{ functionDeclarations: [AVATAR_EMOTION_TOOL, AVATAR_GESTURE_TOOL] }],
         },
         callbacks: {
-          onopen: () => this.callbacks.onStatus?.("connected"),
           onmessage: (message) => this.handleMessage(message, currentRun),
           onerror: (event) => {
             const message = event.error instanceof Error ? event.error.message : "Gemini Live WebSocket 發生錯誤。";
@@ -123,7 +132,7 @@ export class GeminiLiveClient {
       if (this.stopped || currentRun !== this.runId) { session.close(); return; }
       this.session = session;
       this.failures = 0;
-      this.callbacks.onStatus?.("connected");
+      if (this.setupComplete) this.callbacks.onStatus?.("connected");
     } catch (error) {
       if (this.stopped || currentRun !== this.runId) return;
       this.handleFailure(error instanceof Error ? error : new Error(String(error)), currentRun);
@@ -132,6 +141,10 @@ export class GeminiLiveClient {
 
   private handleMessage(message: LiveServerMessage, currentRun: number): void {
     if (this.stopped || currentRun !== this.runId) return;
+    if (message.setupComplete) {
+      this.setupComplete = true;
+      if (this.session) this.callbacks.onStatus?.("connected");
+    }
     const resumption = message.sessionResumptionUpdate;
     if (resumption?.resumable && resumption.newHandle) this.resumptionHandle = resumption.newHandle;
     const content = message.serverContent;
@@ -200,6 +213,8 @@ export class GeminiLiveClient {
     if (this.stopped || currentRun !== this.runId) return;
     this.session = null;
     this.failures += 1;
+    this.audioStreamOpen = false;
+    this.setupComplete = false;
     if (this.failures >= 3) {
       this.handleFailure(new Error("Gemini Live 連線已中斷，請檢查網路、API key 與配額。"), currentRun);
       return;

@@ -18,6 +18,7 @@ export class AudioEngine {
   private nextPlayTime = 0;
   private running = false;
   private muted = false;
+  private microphonePaused = false;
 
   constructor(callbacks: AudioCallbacks = {}) { this.callbacks = callbacks; }
 
@@ -36,28 +37,7 @@ export class AudioEngine {
     this.outputGain.connect(this.analyser);
     this.analyser.connect(this.context.destination);
 
-    if (captureMicrophone) {
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error("此瀏覽器不支援麥克風擷取。");
-      this.inputStream = await navigator.mediaDevices.getUserMedia({
-        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        video: false,
-      });
-      this.inputSource = this.context.createMediaStreamSource(this.inputStream);
-      await this.context.audioWorklet.addModule(chrome.runtime.getURL("pcm-capture.worklet.js"));
-      this.processor = new AudioWorkletNode(this.context, "pageask-vrm-audio-capture", {
-        numberOfInputs: 1,
-        numberOfOutputs: 1,
-        outputChannelCount: [1],
-        channelCount: 1,
-        channelCountMode: "explicit",
-      });
-      this.silentGain = this.context.createGain();
-      this.silentGain.gain.value = 0;
-      this.processor.port.onmessage = (event: MessageEvent<Float32Array>) => this.capture(event.data);
-      this.inputSource.connect(this.processor);
-      this.processor.connect(this.silentGain);
-      this.silentGain.connect(this.context.destination);
-    }
+    if (captureMicrophone) await this.setupMicrophone();
     this.nextPlayTime = this.context.currentTime;
     this.running = true;
   }
@@ -65,6 +45,40 @@ export class AudioEngine {
   setMuted(muted: boolean): void {
     this.muted = muted;
     if (muted) this.callbacks.onInputLevel?.(0);
+  }
+
+  private async setupMicrophone(): Promise<void> {
+    if (!this.context) return;
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("此瀏覽器不支援麥克風擷取。");
+    this.inputStream = await navigator.mediaDevices.getUserMedia({
+      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      video: false,
+    });
+    this.inputSource = this.context.createMediaStreamSource(this.inputStream);
+    await this.context.audioWorklet.addModule(chrome.runtime.getURL("pcm-capture.worklet.js"));
+    this.processor = new AudioWorkletNode(this.context, "pageask-vrm-audio-capture", {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+      channelCount: 1,
+      channelCountMode: "explicit",
+    });
+    this.silentGain = this.context.createGain();
+    this.silentGain.gain.value = 0;
+    this.processor.port.onmessage = (event: MessageEvent<Float32Array>) => this.capture(event.data);
+    this.inputSource.connect(this.processor);
+    this.processor.connect(this.silentGain);
+    this.silentGain.connect(this.context.destination);
+  }
+
+  // Keep the capture graph ready; the Live client signals audioStreamEnd to the server.
+  pauseMicrophone(): void {
+    this.microphonePaused = true;
+    this.callbacks.onInputLevel?.(0);
+  }
+
+  resumeMicrophone(): void {
+    this.microphonePaused = false;
   }
 
   playPcm(bytes: Uint8Array, sampleRate = 24000): void {
@@ -107,6 +121,7 @@ export class AudioEngine {
 
   async stop(): Promise<void> {
     this.running = false;
+    this.microphonePaused = false;
     this.flushPlayback();
     if (this.processor) {
       this.processor.port.onmessage = null;
@@ -130,7 +145,7 @@ export class AudioEngine {
   }
 
   private capture(samples: Float32Array): void {
-    if (!this.running || !this.context || this.muted) return;
+    if (!this.running || !this.context || this.muted || this.microphonePaused) return;
     const pcm = floatToPcm16(resample(samples, this.context.sampleRate, 16000));
     this.callbacks.onInputChunk?.(pcm);
     let sum = 0;
